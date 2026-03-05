@@ -7,5 +7,6 @@ require("modules.1password") -- 1Password SSH 软链接
 require("modules.spacebar") -- 菜单栏显示虚拟桌面编号
 require("modules.vscode") -- VS Code 启动/退出 测试版
 require("modules.scimkiller") -- SCIM/TCIM 杀手
+require("modules.window") -- 窗口管理
 
 print("✅ 所有模块加载完成！")
