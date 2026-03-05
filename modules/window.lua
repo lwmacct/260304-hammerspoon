@@ -16,8 +16,22 @@ local function maximize()
     resizeTo({0, 0, 1, 1})
 end
 
+-- 直接关闭当前前台窗口（等同点左上角关闭按钮，不模拟 Cmd+W）
+local function closeFocusedWindow()
+    local win = hs.window.focusedWindow()
+    if win then
+        local ok = win:close()
+        if not ok then
+            hs.alert.show("当前窗口不支持关闭")
+        end
+    else
+        hs.alert.show("没有可关闭的前台窗口")
+    end
+end
+
 -- 快捷键绑定
 local modifiers = {"ctrl", "alt"} -- Control + Option
 
 hs.hotkey.bind(modifiers, "m", left_11_12) -- ⌃⌥M → 左侧留空 11/12
 hs.hotkey.bind(modifiers, "return", maximize) -- ⌃⌥↩ → 最大化
+hs.hotkey.bind(modifiers, "w", closeFocusedWindow) -- ⌃⌥W → 直接关闭前台窗口
