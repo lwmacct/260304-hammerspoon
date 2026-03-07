@@ -4,21 +4,53 @@ local spaces = require("hs.spaces")
 
 local appToSpaceIndex = {
     ["/Applications/Visual Studio Code.app"] = 12,
+    ["/Applications/Code.app"] = 12,
     ["/Applications/WeChat.app"] = 2,
+    ["/Applications/微信.app"] = 2,
     ["/Applications/Telegram.app"] = 3,
+}
+
+local appNameToSpaceIndex = {
+    ["Visual Studio Code"] = 12,
+    ["Code"] = 12,
+    ["WeChat"] = 2,
+    ["微信"] = 2,
+    ["Telegram"] = 3,
+    ["Telegram Desktop"] = 3,
 }
 
 local pendingTimers = {}
 
+local function hasValue(tbl, expected)
+    for _, value in ipairs(tbl or {}) do
+        if value == expected then
+            return true
+        end
+    end
+    return false
+end
+
+local function listToString(tbl)
+    if not tbl or #tbl == 0 then
+        return "[]"
+    end
+
+    local out = {}
+    for i, value in ipairs(tbl) do
+        out[i] = tostring(value)
+    end
+    return "[" .. table.concat(out, ", ") .. "]"
+end
+
 local function firstMovableWindow(app)
     local main = app:mainWindow()
-    if main and main:isStandard() then
+    if main and main:isStandard() and main:id() then
         return main
     end
 
     local wins = app:allWindows()
     for _, win in ipairs(wins) do
-        if win and win:isStandard() then
+        if win and win:isStandard() and win:id() then
             return win
         end
     end
@@ -57,8 +89,8 @@ local function scheduleMove(app, targetIndex, appPath)
     stopTimer(pid)
 
     local attempts = 0
-    local maxAttempts = 20
-    local interval = 0.5
+    local maxAttempts = 40
+    local interval = 0.4
 
     pendingTimers[pid] = hs.timer.doEvery(interval, function()
         attempts = attempts + 1
@@ -84,14 +116,45 @@ local function scheduleMove(app, targetIndex, appPath)
             return
         end
 
-        local ok, err = spaces.moveWindowToSpace(win, targetSpace)
+        local winID = win:id()
+        local before = spaces.windowSpaces(winID) or {}
+
+        local ok, err = spaces.moveWindowToSpace(winID, targetSpace)
         if not ok then
             print(string.format("❌ 移动窗口失败: %s, err=%s", appPath, tostring(err)))
-        else
-            print(string.format("✅ 已移动窗口: %s -> Space %d", appPath, targetIndex))
+            if attempts >= maxAttempts then
+                stopTimer(pid)
+            end
+            return
         end
 
-        stopTimer(pid)
+        local after = spaces.windowSpaces(winID) or {}
+        if hasValue(after, targetSpace) then
+            print(
+                string.format(
+                    "✅ 已移动窗口: %s -> Space %d (before=%s, after=%s)",
+                    appPath,
+                    targetIndex,
+                    listToString(before),
+                    listToString(after)
+                )
+            )
+            stopTimer(pid)
+            return
+        end
+
+        if attempts >= maxAttempts then
+            print(
+                string.format(
+                    "⚠️ moveWindowToSpace 已调用但未生效: %s (target=%s, before=%s, after=%s)",
+                    appPath,
+                    tostring(targetSpace),
+                    listToString(before),
+                    listToString(after)
+                )
+            )
+            stopTimer(pid)
+        end
     end)
 end
 
@@ -101,16 +164,16 @@ appSpacesWatcher = hs.application.watcher.new(function(_, eventType, app)
     end
 
     local appPath = app:path()
-    if not appPath then
-        return
+    local targetIndex = appPath and appToSpaceIndex[appPath] or nil
+    if not targetIndex then
+        local appName = app:name()
+        targetIndex = appName and appNameToSpaceIndex[appName] or nil
     end
-
-    local targetIndex = appToSpaceIndex[appPath]
     if not targetIndex then
         return
     end
 
-    scheduleMove(app, targetIndex, appPath)
+    scheduleMove(app, targetIndex, appPath or (app:name() or "unknown-app"))
 end)
 
 appSpacesWatcher:start()
