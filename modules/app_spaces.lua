@@ -42,6 +42,17 @@ local function listToString(tbl)
     return "[" .. table.concat(out, ", ") .. "]"
 end
 
+local function spaceTypeSafe(spaceID)
+    if not spaceID then
+        return "unknown"
+    end
+    local ok, value = pcall(spaces.spaceType, spaceID)
+    if ok and value then
+        return tostring(value)
+    end
+    return "unknown"
+end
+
 local function firstMovableWindow(app)
     local main = app:mainWindow()
     if main and main:isStandard() and main:id() then
@@ -59,8 +70,8 @@ end
 local function resolveTargetSpace(targetIndex, win)
     local checked = {}
     local candidates = {
-        win and win:screen() or nil,
         hs.screen.mainScreen(),
+        win and win:screen() or nil,
     }
 
     for _, screen in ipairs(candidates) do
@@ -116,29 +127,47 @@ local function scheduleMove(app, targetIndex, appPath)
             return
         end
 
-        local winID = win:id()
-        local before = spaces.windowSpaces(winID) or {}
+        local wins = app:allWindows()
+        local moved = false
+        local errMsg = nil
 
-        local ok, err = spaces.moveWindowToSpace(winID, targetSpace)
-        if not ok then
-            print(string.format("❌ 移动窗口失败: %s, err=%s", appPath, tostring(err)))
-            if attempts >= maxAttempts then
-                stopTimer(pid)
+        for _, eachWin in ipairs(wins) do
+            if eachWin and eachWin:isStandard() and eachWin:id() then
+                if eachWin:isMinimized() then
+                    eachWin:unminimize()
+                end
+
+                local winID = eachWin:id()
+                local before = spaces.windowSpaces(winID) or {}
+                if hasValue(before, targetSpace) then
+                    moved = true
+                else
+                    local ok, err = spaces.moveWindowToSpace(winID, targetSpace, true)
+                    if not ok then
+                        errMsg = tostring(err)
+                    end
+                end
+
+                local after = spaces.windowSpaces(winID) or {}
+                if hasValue(after, targetSpace) then
+                    moved = true
+                    print(
+                        string.format(
+                            "✅ 已移动窗口: %s -> Space %d (targetID=%s, targetType=%s, before=%s, after=%s)",
+                            appPath,
+                            targetIndex,
+                            tostring(targetSpace),
+                            spaceTypeSafe(targetSpace),
+                            listToString(before),
+                            listToString(after)
+                        )
+                    )
+                    break
+                end
             end
-            return
         end
 
-        local after = spaces.windowSpaces(winID) or {}
-        if hasValue(after, targetSpace) then
-            print(
-                string.format(
-                    "✅ 已移动窗口: %s -> Space %d (before=%s, after=%s)",
-                    appPath,
-                    targetIndex,
-                    listToString(before),
-                    listToString(after)
-                )
-            )
+        if moved then
             stopTimer(pid)
             return
         end
@@ -146,11 +175,12 @@ local function scheduleMove(app, targetIndex, appPath)
         if attempts >= maxAttempts then
             print(
                 string.format(
-                    "⚠️ moveWindowToSpace 已调用但未生效: %s (target=%s, before=%s, after=%s)",
+                    "⚠️ moveWindowToSpace 未生效: %s (targetID=%s, targetType=%s, separateSpaces=%s, lastErr=%s)",
                     appPath,
                     tostring(targetSpace),
-                    listToString(before),
-                    listToString(after)
+                    spaceTypeSafe(targetSpace),
+                    tostring(spaces.screensHaveSeparateSpaces()),
+                    tostring(errMsg)
                 )
             )
             stopTimer(pid)
