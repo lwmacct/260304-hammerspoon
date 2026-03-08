@@ -18,4 +18,3 @@ git clone https://github.com/lwmacct/260304-hammerspoon.git ~/.hammerspoon
 - `modules/spacebar.lua`：菜单栏显示当前虚拟桌面编号
 - `modules/vscode.lua`：监听 VS Code 启动/退出并执行命令
 - `modules/window.lua`：窗口管理（含快捷键）
-- `modules/app_spaces.lua`：应用启动后自动将窗口移动到指定 Space
