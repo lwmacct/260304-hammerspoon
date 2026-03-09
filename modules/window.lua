@@ -30,8 +30,9 @@ local function closeFocusedWindow()
 end
 
 -- 快捷键绑定
-local modifiers = {"ctrl", "alt"} -- Control + Option
+local modifiers = {"ctrl", "cmd", "alt"} -- Control + Command + Option
 
-hs.hotkey.bind(modifiers, "m", left_11_12) -- ⌃⌥M → 左侧留空 11/12
-hs.hotkey.bind(modifiers, "return", maximize) -- ⌃⌥↩ → 最大化
-hs.hotkey.bind(modifiers, "w", closeFocusedWindow) -- ⌃⌥W → 直接关闭前台窗口
+hs.hotkey.bind(modifiers, "n", left_11_12) -- ⌃⌥⌘N → 左侧留空 11/12
+hs.hotkey.bind(modifiers, "m", maximize) -- ⌃⌥⌘M → 最大化
+
+hs.hotkey.bind({"cmd", "alt"}, "w", closeFocusedWindow) -- ⌘⌥W → 直接关闭前台窗口
